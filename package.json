@@ -5,7 +5,11 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "pm2:start": "pm2 start src/server.js --name my-app",
+    "pm2:restart": "pm2 restart my-app",
+    "pm2:stop": "pm2 stop my-app",
+    "pm2:logs": "pm2 logs my-app"
   },
   "dependencies": {
     "axios": "^1.11.0",
