@@ -18,30 +18,33 @@ router.get('/laptops', auth, async (req, res) => {
 // Track laptop location (authenticated user or agent can post)
 router.post('/track', async (req, res) => {
   try {
-    const { hostname, ip, os, cpu_percent, disk_percent, memory_percent, battery} = req.body;
+    console.log(req.body);
+    const { fulladdress, city, state, postcode, district, country, latitude, longitude, hostname, tracked_at, cpu_percent, disk_percent, memory_percent, battery, os_name} = req.body;
     if (!hostname) return res.status(400).json({ error: 'hostname required' });
-    if (!ip) return res.status(400).json({ error: 'ip required' });
     let laptopId = await Laptop.findByHostName(hostname);
     if (!laptopId) return res.status(400).json({ error: `Laptop data not found for ${hostname}` });
     let locationData = {};
     try {
-      const resp = await axios.get(`http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city,lat,lon,isp`);
-      if (resp.data.status === "success") {
-        locationData = {
-          city: resp.data.city,
-          region: resp.data.regionName,
-          country: resp.data.country,
-          isp: resp.data.isp,
-          latitude: resp.data.lat,
-          longitude: resp.data.lon
-        };
-      } else {
-        console.warn(`IP lookup failed: ${resp.data.message}`);
-      }
+      locationData = {
+        fulladdress: fulladdress,
+        city: city,
+        state: state,
+        postcode: postcode,
+        district: district,
+        country: country,
+        latitude: latitude,
+        longitude: longitude,
+        tracked_at: tracked_at,
+        cpu_percent: cpu_percent,
+        disk_percent: disk_percent,
+        memory_percent: memory_percent,
+        battery: battery,
+        os: os_name
+      };
     } catch (e) {
-      console.error("IP API error:", e.message);
+      console.error("Data Error:", e.message);
     }
-    const saved = await Laptop.addLocation(laptopId, { ip, os, cpu_percent, disk_percent, memory_percent, battery, ...locationData });
+    const saved = await Laptop.addLocation(laptopId, locationData);
     res.json({ ok: true, saved });
   } catch (err) {
     console.error(err);

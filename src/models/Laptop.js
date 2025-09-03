@@ -11,9 +11,29 @@ const Laptop = {
   },
   async addLocation(laptopId, data) {
     const res = await pool.query(
-        `INSERT INTO locations (laptop_id, ip, city, region, country, latitude, longitude, isp, cpu_percent, memory_percent, disk_percent, battery, tracked_at)
-       VALUES ($1,$2,$3,$4,$5, $6, $7, $8, $9, $10, $11, $12 ,NOW()) RETURNING *`,
-        [laptopId, data.ip||null, data.city||null, data.region||null, data.country||null, data.latitude||null, data.longitude||null, data.isp||null, data.cpu_percent||null, data.memory_percent||null, data.disk_percent||null, data.battery||null]
+        `INSERT INTO locations
+         (laptop_id, fulladdress, city, county, state, postcode, district, country, os, cpu_percent, memory_percent, disk_percent, battery, latitude, longitude, tracked_at)
+         VALUES
+           ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+           RETURNING *`,
+        [
+          laptopId,
+          data.fulladdress || null,
+          data.city || null,
+          data.county || null,
+          data.state || null,
+          data.postcode || null,
+          data.district || null,
+          data.country || null,
+          data.os || null,
+          data.cpu_percent || null,
+          data.memory_percent || null,
+          data.disk_percent || null,
+          data.battery || null,
+          data.latitude || null,
+          data.longitude || null,
+          data.tracked_at || new Date()
+        ]
     );
     return res.rows[0];
   },
@@ -31,34 +51,40 @@ const Laptop = {
   },
 
   async getAll() {
-    const res = await pool.query('SELECT l.*,\n' +
-        '       COALESCE(\n' +
-        '         json_agg(\n' +
-        '           json_build_object(\n' +
-        '             \'id\', loc.id,\n' +
-        '             \'ip\', loc.ip,\n' +
-        '             \'city\', loc.city,\n' +
-        '             \'region\', loc.region,\n' +
-        '             \'country\', loc.country,\n' +
-        '             \'latitude\', loc.latitude,\n' +
-        '             \'longitude\', loc.longitude,\n' +
-        '             \'tracked_at\', loc.tracked_at,\n' +
-        '             \'isp\', loc.isp,\n' +
-        '             \'cpu_percent\', loc.cpu_percent,\n' +
-        '             \'memory_percent\', loc.memory_percent,\n' +
-        '             \'disk_percent\', loc.disk_percent,\n' +
-        '             \'battery\', loc.battery\n' +
-        '           )\n' +
-        '           ORDER BY loc.tracked_at DESC\n' +
-        '         ) FILTER (WHERE loc.id IS NOT NULL),\n' +
-        '         \'[]\'\n' +
-        '       ) AS locations\n' +
-        'FROM laptops l\n' +
-        'LEFT JOIN locations loc ON l.id = loc.laptop_id\n' +
-        'GROUP BY l.id\n' +
-        'ORDER BY l.created_at DESC;\n');
+    const res = await pool.query(`
+    SELECT l.*,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id', loc.id,
+            'fulladdress', loc.fulladdress,
+            'city', loc.city,
+            'county', loc.county,
+            'state', loc.state,
+            'postcode', loc.postcode,
+            'district', loc.district,
+            'country', loc.country,
+            'os', loc.os,
+            'latitude', loc.latitude,
+            'longitude', loc.longitude,
+            'tracked_at', loc.tracked_at,
+            'cpu_percent', loc.cpu_percent,
+            'memory_percent', loc.memory_percent,
+            'disk_percent', loc.disk_percent,
+            'battery', loc.battery
+          )
+          ORDER BY loc.tracked_at DESC
+        ) FILTER (WHERE loc.id IS NOT NULL),
+        '[]'
+      ) AS locations
+    FROM laptops l
+    LEFT JOIN locations loc ON l.id = loc.laptop_id
+    GROUP BY l.id
+    ORDER BY l.created_at DESC;
+  `);
     return res.rows;
   }
+
 };
 
 module.exports = Laptop;
