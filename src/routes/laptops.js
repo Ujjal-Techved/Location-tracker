@@ -15,6 +15,53 @@ router.get('/laptops', auth, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+router.get('/instructions', async (req, res) => {
+  try {
+    const deviceId = req.query.device_id;
+    if (!deviceId) return res.status(400).json({ error: "device_id is required" });
+
+    // Fetch laptop from DB
+    const laptop = await Laptop.findByHostname(deviceId);
+    if (!laptop) {
+      return res.status(404).json({ error: "Device not found" });
+    }
+
+    const instructions = {
+      alert: laptop.alert,
+      lock: laptop.lock,
+      update_location: laptop.update_location,
+      mark_stolen: laptop.mark_stolen,
+    };
+
+    res.json(instructions);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+router.post("/instructions", async (req, res) => {
+  try {
+    const { device_id, instructions } = req.body;
+    if (!device_id || !instructions) {
+      return res.status(400).json({ error: "device_id and instructions required" });
+    }
+
+    // Validate instructions
+    const validKeys = ["alert", "lock", "update_location", "mark_stolen"];
+    const sanitized = {};
+    validKeys.forEach((key) => {
+      sanitized[key] = instructions[key] === true;
+    });
+
+    // Update DB
+    const updated = await Laptop.updateInstructions(device_id, sanitized);
+
+    res.json({ success: true, device: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 // Track laptop location (authenticated user or agent can post)
 router.post('/track', async (req, res) => {
   try {

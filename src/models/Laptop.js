@@ -49,7 +49,21 @@ const Laptop = {
       return null;
     }
   },
+    async findByHostname(hostname) {
+        const result = await pool.query("SELECT * FROM laptops WHERE hostname = $1", [hostname]);
+        return result.rows[0] || null;
+    },
 
+    async updateInstructions(hostname, instructions) {
+        const { alert, lock, update_location, mark_stolen } = instructions;
+        const result = await pool.query(
+            `UPDATE laptops 
+       SET alert=$1, lock=$2, update_location=$3, mark_stolen=$4 
+       WHERE hostname=$5 RETURNING *`,
+            [alert, lock, update_location, mark_stolen, hostname]
+        );
+        return result.rows[0];
+    },
   async getAll() {
     const res = await pool.query(`
     SELECT l.*,
@@ -83,7 +97,9 @@ const Laptop = {
     ORDER BY l.created_at DESC;
   `);
     return res.rows;
-  }
+  },
+
+
 
 };
 
