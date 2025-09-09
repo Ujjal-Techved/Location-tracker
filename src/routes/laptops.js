@@ -31,6 +31,8 @@ router.get('/instructions', async (req, res) => {
       lock: laptop.lock,
       update_location: laptop.update_location,
       mark_stolen: laptop.mark_stolen,
+      last_action: laptop.last_action,
+      last_payload: laptop.last_payload,
     };
 
     res.json(instructions);

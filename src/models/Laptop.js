@@ -50,7 +50,20 @@ const Laptop = {
     }
   },
     async findByHostname(hostname) {
-        const result = await pool.query("SELECT * FROM laptops WHERE hostname = $1", [hostname]);
+        const query = `
+        SELECT l.*, li.action AS last_action, li.payload AS last_payload, li.created_at AS last_action_at
+        FROM laptops l
+        LEFT JOIN LATERAL (
+            SELECT *
+            FROM laptop_instructions_log
+            WHERE hostname = l.hostname
+            ORDER BY id DESC
+            LIMIT 1
+        ) li ON true
+        WHERE l.hostname = $1
+    `;
+
+        const result = await pool.query(query, [hostname]);
         return result.rows[0] || null;
     },
 
