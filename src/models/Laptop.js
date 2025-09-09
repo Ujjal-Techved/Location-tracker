@@ -54,50 +54,93 @@ const Laptop = {
         return result.rows[0] || null;
     },
 
-    async updateInstructions(hostname, instructions) {
-        const { alert, lock, update_location, mark_stolen } = instructions;
-        const result = await pool.query(
-            `UPDATE laptops 
-       SET alert=$1, lock=$2, update_location=$3, mark_stolen=$4 
-       WHERE hostname=$5 RETURNING *`,
-            [alert, lock, update_location, mark_stolen, hostname]
+    async updateInstructions(hostname, { instructions, payload }) {
+        const validKeys = ["alert", "lock", "update_location", "mark_stolen"];
+        const fields = [];
+        const values = [];
+        let idx = 1;
+
+
+        for (const key of validKeys) {
+            if (key in instructions) {
+                fields.push(`${key} = $${idx}`);
+                values.push(instructions[key] === true);
+                idx++;
+            }
+        }
+        fields.push(`status = $${idx}`);
+        values.push("online");
+        idx++;
+        if (fields.length > 0) {
+            // Update laptops table with flags
+            values.push(hostname);
+            const query = `UPDATE laptops SET ${fields.join(", ")} WHERE hostname=$${idx} RETURNING *`;
+            await pool.query(query, values);
+        }
+
+        // Always log payload (even if no boolean flags changed)
+        await pool.query(
+            `INSERT INTO laptop_instructions_log (hostname, action, payload) VALUES ($1, $2, $3)`,
+            [hostname, Object.keys(instructions).find(k => instructions[k]), payload || {}]
         );
+
+        // Return updated laptop
+        const result = await pool.query(`SELECT * FROM laptops WHERE hostname=$1`, [hostname]);
         return result.rows[0];
     },
-  async getAll() {
-    const res = await pool.query(`
-    SELECT l.*,
-      COALESCE(
-        json_agg(
-          json_build_object(
-            'id', loc.id,
-            'fulladdress', loc.fulladdress,
-            'city', loc.city,
-            'county', loc.county,
-            'state', loc.state,
-            'postcode', loc.postcode,
-            'district', loc.district,
-            'country', loc.country,
-            'os', loc.os,
-            'latitude', loc.latitude,
-            'longitude', loc.longitude,
-            'tracked_at', loc.tracked_at,
-            'cpu_percent', loc.cpu_percent,
-            'memory_percent', loc.memory_percent,
-            'disk_percent', loc.disk_percent,
-            'battery', loc.battery
-          )
-          ORDER BY loc.tracked_at DESC
-        ) FILTER (WHERE loc.id IS NOT NULL),
-        '[]'
-      ) AS locations
-    FROM laptops l
-    LEFT JOIN locations loc ON l.id = loc.laptop_id
-    GROUP BY l.id
-    ORDER BY l.created_at DESC;
-  `);
-    return res.rows;
-  },
+    async getAll() {
+        const res = await pool.query(`
+            SELECT l.*,
+                   COALESCE(
+                           (
+                               SELECT json_agg(
+                                              json_build_object(
+                                                      'id', loc.id,
+                                                      'fulladdress', loc.fulladdress,
+                                                      'city', loc.city,
+                                                      'county', loc.county,
+                                                      'state', loc.state,
+                                                      'postcode', loc.postcode,
+                                                      'district', loc.district,
+                                                      'country', loc.country,
+                                                      'os', loc.os,
+                                                      'latitude', loc.latitude,
+                                                      'longitude', loc.longitude,
+                                                      'tracked_at', loc.tracked_at,
+                                                      'cpu_percent', loc.cpu_percent,
+                                                      'memory_percent', loc.memory_percent,
+                                                      'disk_percent', loc.disk_percent,
+                                                      'battery', loc.battery
+                                              )
+                                                  ORDER BY loc.tracked_at DESC
+                                      )
+                               FROM locations loc
+                               WHERE loc.laptop_id = l.id
+                           ),
+                           '[]'
+                   ) AS locations,
+                   COALESCE(
+                           (
+                               SELECT json_agg(
+                                              json_build_object(
+                                                      'id', log.id,
+                                                      'hostname', log.hostname,
+                                                      'action', log.action,
+                                                      'payload', log.payload,
+                                                      'created_at', log.created_at
+                                              )
+                                                  ORDER BY log.created_at DESC
+                                      )
+                               FROM laptop_instructions_log log
+                               WHERE log.hostname = l.hostname
+                           ),
+                           '[]'
+                   ) AS logs
+            FROM laptops l
+            ORDER BY l.created_at DESC;
+        `);
+        return res.rows;
+    },
 
 
 

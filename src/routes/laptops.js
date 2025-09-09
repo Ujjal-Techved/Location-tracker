@@ -41,7 +41,7 @@ router.get('/instructions', async (req, res) => {
 });
 router.post("/instructions", async (req, res) => {
   try {
-    const { device_id, instructions } = req.body;
+    const { device_id, instructions, payload } = req.body;
     if (!device_id || !instructions) {
       return res.status(400).json({ error: "device_id and instructions required" });
     }
@@ -53,8 +53,14 @@ router.post("/instructions", async (req, res) => {
       sanitized[key] = instructions[key] === true;
     });
 
-    // Update DB
-    const updated = await Laptop.updateInstructions(device_id, sanitized);
+    // Attach payload (only if needed)
+    const actionData = {
+      instructions: sanitized,
+      payload: payload || {}
+    };
+
+    // Update DB (assuming Laptop model supports payload)
+    const updated = await Laptop.updateInstructions(device_id, actionData);
 
     res.json({ success: true, device: updated });
   } catch (err) {
@@ -62,6 +68,7 @@ router.post("/instructions", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 // Track laptop location (authenticated user or agent can post)
 router.post('/track', async (req, res) => {
   try {

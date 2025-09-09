@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const startLocationCheckCron = require("./cron/offlineDevices");
+
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -18,3 +20,4 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+startLocationCheckCron();
